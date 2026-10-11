@@ -1,0 +1,28 @@
+name: Flight Outlier Check
+
+on:
+  schedule:
+    # רץ כל יום ב-06:00 UTC (09:00 שעון ישראל בערך)
+    - cron: '0 6 * * *'
+  workflow_dispatch:  # אפשר להריץ ידנית
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run flight check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+        run: python3 check_flights.py
