@@ -344,11 +344,10 @@ def sample_search(
 def base_params(route: dict[str, Any], depart: str, max_hours: int, max_stops: int) -> dict[str, Any]:
     return {
         "engine": "google_flights",
-        "departure_id": route["origin"],
         # Google Flights accepts comma-separated airport alternatives.
-        # Keep canonical origin/destination fields for other providers such as Amadeus.
-        "arrival_id": route.get("google_destination", route["destination"]),
+        # Canonical origin/destination remain single airport codes for other providers.
         "departure_id": route.get("google_origin", route["origin"]),
+        "arrival_id": route.get("google_destination", route["destination"]),
         "outbound_date": depart,
         "currency": "USD",
         "hl": "en",
