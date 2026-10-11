@@ -2,9 +2,14 @@ name: Flight Outlier Check
 
 on:
   schedule:
-    # רץ כל יום ב-06:00 UTC (09:00 שעון ישראל בערך)
+    # Runs daily at 06:00 UTC
     - cron: '0 6 * * *'
-  workflow_dispatch:  # אפשר להריץ ידנית
+  workflow_dispatch:
+  push:
+    paths:
+      - 'check_flights.py'
+      - 'routes_config.json'
+      - '.github/workflows/flight_check.yml'
 
 jobs:
   check:
