@@ -26,7 +26,8 @@
       "destination": "NRT",
       "extreme_oneway": 450,
       "extreme_roundtrip": 750,
-      "notes": "עד עצירה אחת וזמן לכל כיוון עד 20 שעות."
+      "notes": "עד עצירה אחת וזמן לכל כיוון עד 20 שעות.",
+      "google_destination": "NRT,HND"
     },
     {
       "name": "יפן → ישראל",
@@ -34,7 +35,8 @@
       "destination": "TLV",
       "extreme_oneway": 450,
       "extreme_roundtrip": 750,
-      "notes": "נבדק בחיפוש חד־כיווני לסירוגין; חזור מלא נבדק במסלול היוצא מישראל."
+      "notes": "נבדק בחיפוש חד־כיווני לסירוגין; חזור מלא נבדק במסלול היוצא מישראל.",
+      "google_origin": "NRT,HND"
     },
     {
       "name": "ישראל → קוריאה",
@@ -42,7 +44,8 @@
       "destination": "ICN",
       "extreme_oneway": 350,
       "extreme_roundtrip": 600,
-      "notes": "עד עצירה אחת וזמן לכל כיוון עד 20 שעות."
+      "notes": "עד עצירה אחת וזמן לכל כיוון עד 20 שעות.",
+      "google_destination": "ICN,GMP"
     },
     {
       "name": "קוריאה → ישראל",
@@ -50,7 +53,8 @@
       "destination": "TLV",
       "extreme_oneway": 350,
       "extreme_roundtrip": 600,
-      "notes": "נבדק בחיפוש חד־כיווני לסירוגין; חזור מלא נבדק במסלול היוצא מישראל."
+      "notes": "נבדק בחיפוש חד־כיווני לסירוגין; חזור מלא נבדק במסלול היוצא מישראל.",
+      "google_origin": "ICN,GMP"
     },
     {
       "name": "ישראל → תאילנד",
@@ -58,7 +62,8 @@
       "destination": "BKK",
       "extreme_oneway": 300,
       "extreme_roundtrip": 550,
-      "notes": "עד עצירה אחת וזמן לכל כיוון עד 20 שעות."
+      "notes": "עד עצירה אחת וזמן לכל כיוון עד 20 שעות.",
+      "google_destination": "BKK,DMK"
     },
     {
       "name": "תאילנד → ישראל",
@@ -66,7 +71,8 @@
       "destination": "TLV",
       "extreme_oneway": 300,
       "extreme_roundtrip": 550,
-      "notes": "נבדק בחיפוש חד־כיווני לסירוגין; חזור מלא נבדק במסלול היוצא מישראל."
+      "notes": "נבדק בחיפוש חד־כיווני לסירוגין; חזור מלא נבדק במסלול היוצא מישראל.",
+      "google_origin": "BKK,DMK"
     }
   ]
 }
