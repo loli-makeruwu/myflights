@@ -10,6 +10,8 @@
 - ממיין לפי מחיר, כולל תוצאות נוספות מוסתרות, ומסנן לפי עד 20 שעות ועד עצירה אחת לכל כיוון.
 - מציג גם את המחירים הנמוכים שנמצאו כאשר אין דיל מתחת לסף, ומסמן בנפרד מחירים שלא הצליחו לעבור אימות של טיסת החזור.
 - שולח סיכום לטלגרם בכל הרצה, גם כאשר לא נמצא דיל או כאשר ה-API נכשל.
+- סריקה מתוזמנת פעמיים ביום: 06:00 ו-18:00 UTC.
+- יכול להוסיף מקור שני, Amadeus Flight Offers Search, אם מגדירים את פרטי ה-API; המקור משלים את Google Flights ולא מחליף אותו.
 
 ## ספי מחיר (USD)
 
@@ -26,10 +28,21 @@
 ב-GitHub Repository → Settings → Secrets and variables → Actions, יש להגדיר:
 
 - SERPAPI_KEY — מפתח SerpAPI
+- AMADEUS_CLIENT_ID — (אופציונלי) מזהה API מ-Amadeus for Developers
+- AMADEUS_CLIENT_SECRET — (אופציונלי) סוד ה-API של Amadeus
 - TELEGRAM_BOT_TOKEN — הטוקן של הבוט
 - TELEGRAM_CHAT_ID — מזהה הצ'אט שאליו שולחים
 
-הפעולה מתוזמנת מדי יום ב-06:00 UTC, ואפשר גם להריץ ידנית בלשונית Actions → Flight Outlier Check → Run workflow.
+הפעולה מתוזמנת פעמיים ביום ב-06:00 וב-18:00 UTC (GitHub Actions משתמש ב-UTC; השעה בישראל משתנה לפי שעון קיץ/חורף), ואפשר גם להריץ ידנית בלשונית Actions → Flight Outlier Check → Run workflow.
+
+### הוספת מקור טיסות נוסף (Amadeus)
+
+1. צרו חשבון ב-[Amadeus for Developers](https://developers.amadeus.com/) והפעילו את Flight Offers Search.
+2. הוסיפו ב-GitHub → Settings → Secrets and variables → Actions שני Repository secrets: `AMADEUS_CLIENT_ID` ו-`AMADEUS_CLIENT_SECRET`.
+3. כברירת מחדל הקוד משתמש בכתובת סביבת הבדיקה `https://test.api.amadeus.com`. אם יש לכם הרשאת Production, הוסיפו Repository variable בשם `AMADEUS_API_BASE` עם הערך `https://api.amadeus.com`.
+4. בלי שני ה-Secrets של Amadeus, הכלי ממשיך לעבוד עם Google Flights בלבד. אל תכניסו מפתחות API לקוד או לקבצים ציבוריים.
+
+**מגבלת מקור:** Amadeus אינו מכסה את כל חברות התעופה/התעריפים, ובפרט חלק מחברות ה-Low-Cost אינן מוחזרות ב-Self-Service. יש להתייחס אליו כמקור משלים ולבדוק מחיר סופי אצל הספק לפני הזמנה. [פרטי הכיסוי של Amadeus](https://admin.developers.amadeus.com/self-service/apis-docs/guides/developer-guides/faq/)
 
 ## פרטי הסריקה
 
