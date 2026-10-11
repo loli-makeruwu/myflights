@@ -1,34 +1,27 @@
-# Flight Outlier Tracker - Personal Telegram Bot
+# Flight Outlier Tracker
 
-כלי אישי שבודק מחירים חריגים במסלולים:
-ישראל ↔ יפן / קוריאה / תאילנד
+עותק עצמאי של סורק הטיסות מישראל ליפן, קוריאה ותאילנד. אותם קבצים רצים גם משורש המאגר.
 
-**כללים:**
-- זמן כולל ≤ 20 שעות
-- מחיר מתחת לסף שהגדרת
-- חלונות: פברואר + קיץ
+אין צורך במפתח בתשלום. כל הרצה בודקת את Google Flights ואת Kiwi.com. Aviasales נוסף רק עם `TRAVELPAYOUTS_TOKEN` חינמי, וזה מטמון ולא חיפוש חי. `SERPAPI_KEY` הוא גיבוי בלבד, אם Google הישיר נכשל. Amadeus לא בשימוש.
 
-## איך להפעיל אוטומטית (GitHub Actions)
+הכללים: עד 20 שעות מדלת לדלת לכל כיוון, עד עצירה אחת, והספים ב-`routes_config.json`. בכל הרצה Google ו-Kiwi נבדקים בחמישה ימי יציאה, והטלגרם מקבל את כל הטיסות שעברו את הכללים. מחיר הלוך־חזור מ-Google לא כולל בדיקת משך החזור. יש לאמת כל מחיר לפני הזמנה.
 
-1. צור ריפו חדש ב-GitHub (פרטי).
-2. העלה את כל הקבצים מתיקיית `flight_tool`.
-3. הוסף Secrets בריפו (Settings → Secrets and variables → Actions):
+## GitHub Actions
+
+1. צרו ריפו פרטי והעלו את תיקיית `flight_tool`.
+2. הוסיפו Secrets:
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_CHAT_ID`
-   - `SERPAPI_KEY` (הירשם חינם ב-serpapi.com)
-
-4. ה-workflow רץ אוטומטית (כל יום או לפי מה שתגדיר).
-
-## קבצים חשובים
-- `check_flights.py` — הסקריפט הראשי שבודק מחירים ושולח התראה
-- `.github/workflows/flight_check.yml` — אוטומציה
-- `routes_config.json` — מסלולים, ספים וחלונות
-- `.env.example` — דוגמה למשתנים
+   - `TRAVELPAYOUTS_TOKEN` (אופציונלי)
+   - `SERPAPI_KEY` (אופציונלי)
+3. `.github/workflows/flight_check.yml` רץ ב-06:00 וב-18:00 UTC, ואפשר להפעיל אותו ידנית.
 
 ## הרצה מקומית
+
 ```bash
 pip install -r requirements.txt
 cp .env.example .env
-# מלא את הערכים
-python3 check_flights.py
+python check_flights.py --sample --no-telegram
 ```
+
+`python flight_outlier_tracker.py` מדפיס קישורי השוואה מתוך `routes_config.json` ולא דורס את הקובץ. `python telegram_bot.py` שולח דשבורד קישורים לטלגרם.

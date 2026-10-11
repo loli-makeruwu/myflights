@@ -1,109 +1,110 @@
 #!/usr/bin/env python3
-"""
-בוט טלגרם אישי להתראות מחירים חריגים
-ישראל ↔ יפן / קוריאה / תאילנד
-"""
+"""Personal Telegram dashboard with comparison links for the configured routes."""
 
-import os
 import json
-import requests
+import os
+import sys
 from datetime import datetime
 from pathlib import Path
 
-# טעינת משתני סביבה מקובץ .env
+import requests
+
+from flight_sources import comparison_links, primary_code
+
 env_path = Path(__file__).parent / ".env"
 if env_path.exists():
-    with open(env_path) as f:
-        for line in f:
+    with open(env_path, encoding="utf-8") as handle:
+        for line in handle:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                os.environ[key] = value
+                os.environ.setdefault(key, value)
 
 TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
 if not TOKEN:
-    raise SystemExit("❌ חסר TELEGRAM_BOT_TOKEN בקובץ .env")
+    raise SystemExit("Missing TELEGRAM_BOT_TOKEN in .env")
 
 BASE_URL = f"https://api.telegram.org/bot{TOKEN}"
+MAX_TELEGRAM_CHARS = 3900
 
-def send_message(text: str, parse_mode=None):
+
+def send_message(text: str) -> bool:
     if not CHAT_ID:
-        print("⚠️  אין TELEGRAM_CHAT_ID. שלח הודעה לבוט ואז הרץ get_chat_id()")
+        print("No TELEGRAM_CHAT_ID. Message the bot, then run: python telegram_bot.py chatid")
         return False
-    url = f"{BASE_URL}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": text,
-        "disable_web_page_preview": True
-    }
-    if parse_mode:
-        payload["parse_mode"] = parse_mode
-    r = requests.post(url, json=payload, timeout=15)
-    if r.ok:
-        print("✅ הודעה נשלחה")
+    if len(text) > MAX_TELEGRAM_CHARS:
+        text = text[: MAX_TELEGRAM_CHARS - 40].rstrip() + "\n\n… ההודעה קוצרה."
+    response = requests.post(
+        f"{BASE_URL}/sendMessage",
+        json={"chat_id": CHAT_ID, "text": text, "disable_web_page_preview": True},
+        timeout=15,
+    )
+    if response.ok:
+        print("Message sent.")
         return True
-    else:
-        print("❌ שגיאה בשליחה:", r.text)
-        return False
+    print("Telegram rejected the message.")
+    return False
+
 
 def get_chat_id():
-    """מביא את ה-Chat ID מהעדכון האחרון"""
-    r = requests.get(f"{BASE_URL}/getUpdates", timeout=10)
-    data = r.json()
+    """Print the chat id from the latest update after you message the bot."""
+    response = requests.get(f"{BASE_URL}/getUpdates", timeout=10)
+    data = response.json()
     if not data.get("ok") or not data["result"]:
-        print("אין עדכונים. שלח הודעה לבוט (@Flightsjustformebot) ונסה שוב.")
+        print("No updates yet. Send any message to the bot and run this again.")
         return None
-    last = data["result"][-1]
-    chat_id = last["message"]["chat"]["id"]
-    print(f"Chat ID שלך: {chat_id}")
-    print("הוסף אותו לקובץ .env בשורה: TELEGRAM_CHAT_ID=" + str(chat_id))
+    chat_id = data["result"][-1]["message"]["chat"]["id"]
+    print(f"Chat ID: {chat_id}")
+    print("Add this line to .env: TELEGRAM_CHAT_ID=" + str(chat_id))
     return chat_id
 
-def load_config():
-    config_path = Path(__file__).parent / "routes_config.json"
-    if config_path.exists():
-        with open(config_path, encoding="utf-8") as f:
-            return json.load(f)
-    return {}
 
-def build_dashboard_message():
+def load_config() -> dict:
+    config_path = Path(__file__).parent / "routes_config.json"
+    with open(config_path, encoding="utf-8") as handle:
+        return json.load(handle)
+
+
+def build_dashboard_message() -> str:
     config = load_config()
     windows = config.get("preferred_windows", [])
     routes = config.get("routes", [])
     max_hours = config.get("max_total_hours", 20)
+    max_stops = config.get("max_stops", 1)
 
     lines = [
         "✈️ דשבורד מחירים חריגים",
-        f"⏱️ זמן כולל ≤ {max_hours} שעות",
+        f"⏱️ עד {max_hours} שעות לכל כיוון | עד {'עצירה אחת' if int(max_stops) == 1 else str(max_stops) + ' עצירות'}",
         f"📅 עודכן: {datetime.now().strftime('%d/%m/%Y %H:%M')}",
-        ""
+        "הקישורים הם לבדיקה ידנית. הסורק עצמו הוא check_flights.py.",
+        "",
     ]
-
     if windows:
         lines.append("חלונות מועדפים:")
-        for w in windows:
-            lines.append(f"• {w['name']}: {w['start']} → {w['end']}")
+        for window in windows:
+            lines.append(f"• {window['name']}: {window['start']} → {window['end']} ({window.get('trip_length_days', '')})")
         lines.append("")
 
-    for r in routes:
-        lines.append(f"📍 {r['name']}")
-        lines.append(f"סף: כיוון אחד < ${r['extreme_oneway']} | הלוך-חזור < ${r['extreme_roundtrip']}")
-        link = f"https://www.google.com/travel/flights?hl=he&curr=USD&q=flights%20from%20{r['origin']}%20to%20{r['destination']}"
-        lines.append(f"Google Flights: {link}")
+    for route in routes:
+        origin = primary_code(route, "origin")
+        destination = primary_code(route, "destination")
+        lines.append(f"📍 {route['name']} ({origin} → {destination})")
+        lines.append(f"סף: כיוון אחד < ${route['extreme_oneway']} | הלוך-חזור < ${route['extreme_roundtrip']}")
+        for name, url in comparison_links(origin, destination):
+            lines.append(f"{name}: {url}")
         lines.append("")
 
-    lines.append("סנן ב-Google Flights: Duration ≤ 20 שעות.")
-    lines.append("מחיר מתחת לסף + זמן בסדר = דיל חריג.")
+    lines.append("מחיר מתחת לסף, עם זמן ועצירות בתוך הכללים, הוא דיל ששווה בדיקה. אמתו את המחיר לפני הזמנה.")
     return "\n".join(lines)
 
+
 if __name__ == "__main__":
-    import sys
     if len(sys.argv) > 1 and sys.argv[1] == "chatid":
         get_chat_id()
     else:
-        msg = build_dashboard_message()
-        print(msg)
+        message = build_dashboard_message()
+        print(message)
         print("---")
-        send_message(msg)
+        send_message(message)
