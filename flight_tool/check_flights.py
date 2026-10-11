@@ -89,6 +89,12 @@ def api_search(params: dict[str, Any], context: str) -> dict[str, Any] | None:
             data = {}
         error = data.get("error") if isinstance(data, dict) else None
         status = data.get("search_metadata", {}).get("status") if isinstance(data, dict) else None
+        # Google Flights can return this for a valid search with no itineraries;
+        # treat it as an empty result, not a broken API call.
+        if isinstance(error, str) and "hasn't returned any results for this query" in error.lower():
+            STATS["successful"] += 1
+            print(f"No itineraries returned for {context}.")
+            return {}
         if (response.status_code == 429 or response.status_code >= 500) and attempt == 0:
             time.sleep(1.5)
             continue
@@ -166,9 +172,24 @@ def parse_trip_days(window: dict[str, Any]) -> list[int]:
     return sorted(set((low, (low + high) // 2, high)))
 
 
-def sample_search(window: dict[str, Any], route_index: int, window_index: int, today: date) -> tuple[str, int] | None:
-    """Move through each date window daily rather than repeatedly checking fixed dates."""
+def sample_search(
+    window: dict[str, Any],
+    route_index: int,
+    window_index: int,
+    today: date,
+    one_way: bool = False,
+    max_search_days_ahead: int = 320,
+) -> tuple[str, int] | None:
+    """Rotate date coverage while avoiding dates whose schedules may not be published yet."""
     start, end = date.fromisoformat(window["start"]), date.fromisoformat(window["end"])
+    # Airlines commonly publish schedules roughly 10–12 months ahead. Keep round-trip
+    # returns inside this conservative horizon to avoid false "no results" near the limit.
+    horizon = today + timedelta(days=max_search_days_ahead)
+    if one_way:
+        end = min(end, horizon)
+    else:
+        latest_stay = max(parse_trip_days(window))
+        end = min(end, horizon - timedelta(days=latest_stay))
     first_valid = max(start, today + timedelta(days=1))
     if first_valid > end:
         return None
@@ -271,7 +292,7 @@ def main() -> int:
 
     for route_index, (outbound, inbound) in enumerate(pairs):
         for window_index, window in enumerate(windows):
-            sampled = sample_search(window, route_index, window_index, today)
+            sampled = sample_search(window, route_index, window_index, today, one_way=one_way_day)
             if not sampled:
                 print(f"Skipping {outbound['name']} | {window['name']}: window has ended")
                 continue
