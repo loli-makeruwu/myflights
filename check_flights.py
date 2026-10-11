@@ -400,7 +400,8 @@ def format_option(route_name: str, window_name: str, option: dict[str, Any], dep
         f"{label}{route_name} | {window_name}\n"
         f"📅 {dates}\n"
         f"💰 {money(option['price'])}\n"
-        f"⏱️ {option['duration_hours']} ש׳ | {option['stops']} עצירות | {option['airline']}\n"
+        f"⏱️ {(' / '.join(str(h) + ' ש׳' for h in option['leg_durations'])) if option.get('leg_durations') else str(option['duration_hours']) + ' ש׳'} | "
+        f"{option['stops']} עצירות | {option['airline']}\n"
         f"🔎 מקור: {option.get('source', 'Google Flights')}\n"
         f"🔗 {option.get('link') or 'אין קישור ישיר להזמנה; חפש את אותם תאריכים באתר המקור או בחברת התעופה'}"
     )
@@ -445,6 +446,17 @@ def main() -> int:
                 threshold = as_int(route.get("extreme_oneway"), 0) or 0
                 data, options = run_search(one_way_query(route, depart, max_hours, max_stops),
                                            f"one-way {route['name']} | {window['name']} | {depart}", max_hours, max_stops)
+                amadeus_options = amadeus_search(
+                    route, depart, None, max_hours, max_stops,
+                    f"one-way {route['name']} | {window['name']} | {depart}",
+                )
+                if amadeus_options:
+                    snapshots.append({"route": route["name"], "window": window["name"], "depart": depart,
+                                      "return": None, "option": amadeus_options[0], "threshold": threshold})
+                    for option in amadeus_options:
+                        if threshold and option["price"] < threshold:
+                            deals.append(format_option(route["name"], window["name"], option, depart,
+                                                       label="🔥 דיל חד־כיווני (Amadeus)\n"))
                 if data is None or not options:
                     continue
                 snapshots.append({"route": route["name"], "window": window["name"], "depart": depart,
@@ -458,10 +470,21 @@ def main() -> int:
 
             params = round_trip_query(outbound, depart, stay, max_hours, max_stops)
             ret = params["return_date"]
+            threshold = as_int(outbound.get("extreme_roundtrip"), 0) or 0
             data, options = run_search(params, f"round-trip {outbound['name']} | {window['name']} | {depart}", max_hours, max_stops)
+            amadeus_options = amadeus_search(
+                outbound, depart, stay, max_hours, max_stops,
+                f"round-trip {outbound['name']} | {window['name']} | {depart}",
+            )
+            if amadeus_options:
+                snapshots.append({"route": outbound["name"], "window": window["name"], "depart": depart,
+                                  "return": ret, "option": amadeus_options[0], "threshold": threshold})
+                for option in amadeus_options:
+                    if threshold and option["price"] < threshold:
+                        deals.append(format_option(outbound["name"], window["name"], option, depart, ret,
+                                                   label="🔥 דיל הלוך־חזור (Amadeus)\n"))
             if data is None or not options:
                 continue
-            threshold = as_int(outbound.get("extreme_roundtrip"), 0) or 0
             snapshots.append({"route": outbound["name"], "window": window["name"], "depart": depart,
                               "return": ret, "option": options[0], "threshold": threshold})
             for option in options:
@@ -521,7 +544,8 @@ def main() -> int:
 
     lines = [
         f"✈️ בדיקת טיסות {mode_label} | {now}",
-        f"סריקות בסיס: {scan_count} | בקשות API בפועל: {STATS['requests']} | הצליחו: {STATS['successful']} | שגיאות: {len(SEARCH_ERRORS)}",
+        f"מקורות: Google Flights" + (" + Amadeus" if AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET else " (Amadeus לא הוגדר)") ,
+        f"סריקות בסיס: {scan_count} | בקשות API בפועל: {STATS['requests']} | הצליחו: {STATS['successful']} | Amadeus: {STATS['amadeus_successful']} | שגיאות: {len(SEARCH_ERRORS)}",
     ]
     if SEARCH_ERRORS and STATS["successful"] == 0:
         lines.append("\n⚠️ כל החיפושים נכשלו. אי אפשר להסיק שאין דילים.")
