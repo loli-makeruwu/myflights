@@ -2,8 +2,8 @@ name: Flight Outlier Check
 
 on:
   schedule:
-    # Runs daily at 06:00 UTC
-    - cron: '0 6 * * *'
+    # Twice daily at 06:00 and 18:00 UTC (GitHub Actions cron uses UTC)
+    - cron: '0 6,18 * * *'
   workflow_dispatch:
   push:
     paths:
@@ -30,4 +30,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SERPAPI_KEY: ${{ secrets.SERPAPI_KEY }}
+          AMADEUS_CLIENT_ID: ${{ secrets.AMADEUS_CLIENT_ID }}
+          AMADEUS_CLIENT_SECRET: ${{ secrets.AMADEUS_CLIENT_SECRET }}
+          AMADEUS_API_BASE: ${{ vars.AMADEUS_API_BASE }}
         run: python3 check_flights.py
