@@ -17,9 +17,14 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 TELEGRAM_URL = f"https://api.telegram.org/bot{TOKEN}/sendMessage" if TOKEN else ""
 SERP_URL = "https://serpapi.com/search"
+AMADEUS_CLIENT_ID = os.getenv("AMADEUS_CLIENT_ID")
+AMADEUS_CLIENT_SECRET = os.getenv("AMADEUS_CLIENT_SECRET")
+AMADEUS_API_BASE = os.getenv("AMADEUS_API_BASE", "https://test.api.amadeus.com").rstrip("/")
+AMADEUS_TOKEN: str | None = None
+AMADEUS_TOKEN_EXPIRES = 0.0
 MAX_TELEGRAM_CHARS = 3900
 SEARCH_ERRORS: list[str] = []
-STATS = {"requests": 0, "successful": 0}
+STATS = {"requests": 0, "successful": 0, "amadeus_successful": 0}
 
 
 def load_config() -> dict[str, Any]:
@@ -155,6 +160,141 @@ def flight_options(data: dict[str, Any] | None, max_hours: int, max_stops: int) 
             "airline": ", ".join(airlines) if airlines else "לא צוין",
             "departure_token": item.get("departure_token"),
             "link": data.get("search_metadata", {}).get("google_flights_url", ""),
+            "source": "Google Flights",
+        })
+    return sorted(accepted, key=lambda x: (x["price"], x["duration_hours"], x["stops"]))
+
+
+def iso_duration_minutes(value: Any) -> int | None:
+    """Convert ISO-8601 durations such as PT12H35M into minutes."""
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(r"P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?", value)
+    if not match:
+        return None
+    days, hours, minutes = (int(x or 0) for x in match.groups())
+    return days * 1440 + hours * 60 + minutes
+
+
+def amadeus_access_token() -> str | None:
+    """Fetch/cache an Amadeus OAuth token if optional credentials are configured."""
+    global AMADEUS_TOKEN, AMADEUS_TOKEN_EXPIRES
+    if not (AMADEUS_CLIENT_ID and AMADEUS_CLIENT_SECRET):
+        return None
+    if AMADEUS_TOKEN and time.time() < AMADEUS_TOKEN_EXPIRES - 60:
+        return AMADEUS_TOKEN
+    STATS["requests"] += 1
+    try:
+        response = requests.post(
+            f"{AMADEUS_API_BASE}/v1/security/oauth2/token",
+            data={
+                "grant_type": "client_credentials",
+                "client_id": AMADEUS_CLIENT_ID,
+                "client_secret": AMADEUS_CLIENT_SECRET,
+            },
+            timeout=25,
+        )
+        payload = response.json()
+        if not response.ok or not payload.get("access_token"):
+            detail = str(payload.get("error_description") or payload.get("error") or f"HTTP {response.status_code}")[:180]
+            SEARCH_ERRORS.append(f"Amadeus OAuth: {detail}")
+            print(f"Amadeus OAuth error: {detail}")
+            return None
+        AMADEUS_TOKEN = payload["access_token"]
+        AMADEUS_TOKEN_EXPIRES = time.time() + int(payload.get("expires_in", 1800))
+        return AMADEUS_TOKEN
+    except (requests.RequestException, ValueError) as exc:
+        SEARCH_ERRORS.append(f"Amadeus OAuth: {type(exc).__name__}")
+        print(f"Amadeus OAuth request failed: {type(exc).__name__}")
+        return None
+
+
+def amadeus_search(
+    route: dict[str, Any],
+    depart: str,
+    stay: int | None,
+    max_hours: int,
+    max_stops: int,
+    context: str,
+) -> list[dict[str, Any]]:
+    """Search Amadeus independently; it is optional and supplements Google Flights."""
+    token = amadeus_access_token()
+    if not token:
+        return []
+    params: dict[str, Any] = {
+        "originLocationCode": route["origin"],
+        "destinationLocationCode": route["destination"],
+        "departureDate": depart,
+        "adults": 1,
+        "currencyCode": "USD",
+        "max": 30,
+    }
+    if stay is not None:
+        params["returnDate"] = (date.fromisoformat(depart) + timedelta(days=stay)).isoformat()
+    STATS["requests"] += 1
+    try:
+        response = requests.get(
+            f"{AMADEUS_API_BASE}/v2/shopping/flight-offers",
+            headers={"Authorization": f"Bearer {token}"},
+            params=params,
+            timeout=45,
+        )
+        payload = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        SEARCH_ERRORS.append(f"Amadeus {context}: {type(exc).__name__}")
+        print(f"Amadeus search failed for {context}: {type(exc).__name__}")
+        return []
+
+    if not response.ok:
+        errors = payload.get("errors", []) if isinstance(payload, dict) else []
+        detail = " / ".join(str(x.get("detail") or x.get("title") or x.get("code") or "API error") for x in errors[:2])
+        if not detail:
+            detail = f"HTTP {response.status_code}"
+        SEARCH_ERRORS.append(f"Amadeus {context}: {detail[:180]}")
+        print(f"Amadeus error for {context}: {detail[:180]}")
+        return []
+
+    STATS["successful"] += 1
+    STATS["amadeus_successful"] += 1
+    accepted: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for offer in payload.get("data", []):
+        itineraries = offer.get("itineraries", [])
+        if not itineraries:
+            continue
+        durations = [iso_duration_minutes(itinerary.get("duration")) for itinerary in itineraries]
+        if any(duration is None or duration <= 0 or duration > max_hours * 60 for duration in durations):
+            continue
+        total_stops = 0
+        carriers: list[str] = []
+        for itinerary in itineraries:
+            segments = itinerary.get("segments", [])
+            total_stops += max(0, len(segments) - 1)
+            for segment in segments:
+                carrier = segment.get("carrierCode")
+                if carrier and carrier not in carriers:
+                    carriers.append(carrier)
+        if total_stops > max_stops * len(itineraries):
+            continue
+        try:
+            price = round(float(offer.get("price", {}).get("grandTotal", offer.get("price", {}).get("total"))))
+        except (TypeError, ValueError):
+            continue
+        if price <= 0:
+            continue
+        identity = (price, tuple(durations), total_stops, tuple(carriers))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        accepted.append({
+            "price": price,
+            "duration_hours": round(sum(durations) / 60, 1),
+            "leg_durations": [round(duration / 60, 1) for duration in durations],
+            "stops": total_stops,
+            "airline": ", ".join(carriers) if carriers else "לא צוין",
+            "departure_token": None,
+            "link": "",
+            "source": "Amadeus",
         })
     return sorted(accepted, key=lambda x: (x["price"], x["duration_hours"], x["stops"]))
 
@@ -261,7 +401,8 @@ def format_option(route_name: str, window_name: str, option: dict[str, Any], dep
         f"📅 {dates}\n"
         f"💰 {money(option['price'])}\n"
         f"⏱️ {option['duration_hours']} ש׳ | {option['stops']} עצירות | {option['airline']}\n"
-        f"🔗 {option.get('link') or 'פתח Google Flights ובדוק את המחיר'}"
+        f"🔎 מקור: {option.get('source', 'Google Flights')}\n"
+        f"🔗 {option.get('link') or 'אין קישור ישיר להזמנה; חפש את אותם תאריכים באתר המקור או בחברת התעופה'}"
     )
 
 
