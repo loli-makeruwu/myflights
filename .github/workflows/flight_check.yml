@@ -5,11 +5,6 @@ on:
     # Twice daily at 06:00 and 18:00 UTC (GitHub Actions cron uses UTC)
     - cron: '0 6,18 * * *'
   workflow_dispatch:
-  push:
-    paths:
-      - 'check_flights.py'
-      - 'routes_config.json'
-      - '.github/workflows/flight_check.yml'
 
 jobs:
   check:
