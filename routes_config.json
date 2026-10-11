@@ -1,0 +1,69 @@
+{
+  "max_total_hours": 20,
+  "preferred_windows": [
+    {
+      "name": "פברואר 2027",
+      "start": "2027-02-01",
+      "end": "2027-02-28",
+      "trip_length_days": "7-14",
+      "notes": "טיול של שבוע עד שבועיים"
+    },
+    {
+      "name": "קיץ 2027 (אחרי סמסטר)",
+      "start": "2027-07-01",
+      "end": "2027-09-10",
+      "trip_length_days": "10-21",
+      "notes": "אחרי סוף הסמסטר השני עד תחילת הסמסטר הבא"
+    }
+  ],
+  "routes": [
+    {
+      "name": "ישראל → יפן",
+      "origin": "TLV",
+      "destination": "NRT",
+      "extreme_oneway": 450,
+      "extreme_roundtrip": 750,
+      "notes": "ישיר: אל על / ארקיע (~12ש'). עצירה אחת רק אם סה״כ ≤20ש'."
+    },
+    {
+      "name": "יפן → ישראל",
+      "origin": "NRT",
+      "destination": "TLV",
+      "extreme_oneway": 450,
+      "extreme_roundtrip": 750,
+      "notes": "אותו כלל זמן."
+    },
+    {
+      "name": "ישראל → קוריאה",
+      "origin": "TLV",
+      "destination": "ICN",
+      "extreme_oneway": 350,
+      "extreme_roundtrip": 600,
+      "notes": "Centrum Air (דרך טשקנט) היה זול. רק עצירות ששומרות על ≤20ש' סה״כ."
+    },
+    {
+      "name": "קוריאה → ישראל",
+      "origin": "ICN",
+      "destination": "TLV",
+      "extreme_oneway": 350,
+      "extreme_roundtrip": 600,
+      "notes": "אותו כלל זמן."
+    },
+    {
+      "name": "ישראל → תאילנד",
+      "origin": "TLV",
+      "destination": "BKK",
+      "extreme_oneway": 300,
+      "extreme_roundtrip": 550,
+      "notes": "ישיר: אל על / ארקיע (~11-12ש'). עצירה אחת אפשרית אם סה״כ ≤20ש'."
+    },
+    {
+      "name": "תאילנד → ישראל",
+      "origin": "BKK",
+      "destination": "TLV",
+      "extreme_oneway": 300,
+      "extreme_roundtrip": 550,
+      "notes": "אותו כלל זמן."
+    }
+  ]
+}
