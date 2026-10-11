@@ -358,7 +358,7 @@ def base_params(route: dict[str, Any], depart: str, max_hours: int, max_stops: i
         "sort_by": "2",
         "show_hidden": "true",
         "max_duration": str(max_hours * 60),
-        "stops": "1" if max_stops >= 1 else "0",
+        "stops": "2" if max_stops >= 1 else "1",
     }
 
 
