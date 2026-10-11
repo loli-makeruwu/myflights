@@ -345,7 +345,10 @@ def base_params(route: dict[str, Any], depart: str, max_hours: int, max_stops: i
     return {
         "engine": "google_flights",
         "departure_id": route["origin"],
-        "arrival_id": route["destination"],
+        # Google Flights accepts comma-separated airport alternatives.
+        # Keep canonical origin/destination fields for other providers such as Amadeus.
+        "arrival_id": route.get("google_destination", route["destination"]),
+        "departure_id": route.get("google_origin", route["origin"]),
         "outbound_date": depart,
         "currency": "USD",
         "hl": "en",
@@ -356,7 +359,7 @@ def base_params(route: dict[str, Any], depart: str, max_hours: int, max_stops: i
         "sort_by": "2",
         "show_hidden": "true",
         "max_duration": str(max_hours * 60),
-        "stops": "2" if max_stops >= 1 else "1",
+        "stops": "1" if max_stops >= 1 else "0",
     }
 
 
