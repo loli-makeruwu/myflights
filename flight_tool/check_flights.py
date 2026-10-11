@@ -344,8 +344,10 @@ def sample_search(
 def base_params(route: dict[str, Any], depart: str, max_hours: int, max_stops: int) -> dict[str, Any]:
     return {
         "engine": "google_flights",
-        "departure_id": route["origin"],
-        "arrival_id": route["destination"],
+        # Google Flights accepts comma-separated airport alternatives.
+        # Canonical origin/destination remain single airport codes for other providers.
+        "departure_id": route.get("google_origin", route["origin"]),
+        "arrival_id": route.get("google_destination", route["destination"]),
         "outbound_date": depart,
         "currency": "USD",
         "hl": "en",
@@ -356,7 +358,7 @@ def base_params(route: dict[str, Any], depart: str, max_hours: int, max_stops: i
         "sort_by": "2",
         "show_hidden": "true",
         "max_duration": str(max_hours * 60),
-        "stops": "2" if max_stops >= 1 else "1",
+        "stops": "1" if max_stops >= 1 else "0",
     }
 
 
